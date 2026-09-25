@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZFlow Batcher</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-brand">
+      <div class="header-icon">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div>
+        <h1 class="header-title">ZFlow Batcher</h1>
+        <div class="header-sub">Local Google Flow Automator</div>
+      </div>
+    </div>
+    <div class="header-status">
+      <span class="status-pill status-disconnected" id="flowStatusPill">
+        <span class="status-dot"></span>
+        <span id="flowStatusText">Checking Flow...</span>
+      </span>
+    </div>
+  </header>
+
+  <!-- Flow Tab Helper Bar (shown if not on flow) -->
+  <div id="flowHelperBar" class="helper-bar hidden">
+    <span>Flow tab not found.</span>
+    <button id="btnOpenFlow" class="btn-subtle">Open flow.google.com</button>
+  </div>
+
+  <!-- Primary Action Controls Bar (Sticky) -->
+  <div class="controls-bar">
+    <div class="controls-primary">
+      <button id="btnStart" class="btn btn-primary" title="Start processing queue">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <path d="M8 5v14l11-7z"/>
+        </svg>
+        <span>Start</span>
+      </button>
+      <button id="btnPause" class="btn btn-warning hidden" title="Pause after current prompt finishes">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+        </svg>
+        <span>Pause</span>
+      </button>
+      <button id="btnStop" class="btn btn-danger hidden" title="Stop queue immediately">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <path d="M6 6h12v12H6z"/>
+        </svg>
+        <span>Stop</span>
+      </button>
+      <button id="btnStep" class="btn btn-secondary" title="Run single next prompt (Step Mode)">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M5 12h14M12 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Step</span>
+      </button>
+    </div>
+    <div class="controls-stats" id="statsBar">
+      <span title="Total prompts">Total: <b id="statTotal">0</b></span>
+      <span title="Pending" class="stat-pending">Pend: <b id="statPending">0</b></span>
+      <span title="Successful" class="stat-success">Done: <b id="statSuccess">0</b></span>
+      <span title="Failed" class="stat-failed">Fail: <b id="statFailed">0</b></span>
+    </div>
+  </div>
+
+  <!-- Navigation Tabs -->
+  <nav class="nav-tabs">
+    <button class="nav-tab active" data-tab="tabQueue">Queue</button>
+    <button class="nav-tab" data-tab="tabSettings">Settings</button>
+    <button class="nav-tab" data-tab="tabSelectors">Selectors</button>
+    <button class="nav-tab" data-tab="tabLogs">Logs</button>
+  </nav>
+
+  <!-- Main Scrollable Content Area -->
+  <main class="panel-body">
+    <!-- TAB 1: QUEUE -->
+    <section id="tabQueue" class="tab-pane active">
+      <div class="section-box">
+        <div class="input-actions-row">
+          <label class="btn-chip" for="fileInputTxt">
+            <span>+ TXT</span>
+            <input type="file" id="fileInputTxt" accept=".txt" hidden>
+          </label>
+          <label class="btn-chip" for="fileInputCsv">
+            <span>+ CSV</span>
+            <input type="file" id="fileInputCsv" accept=".csv" hidden>
+          </label>
+          <button id="btnPasteClipboard" class="btn-chip" type="button">Paste</button>
+          <button id="btnClearInput" class="btn-chip btn-chip-danger" type="button">Clear</button>
+        </div>
+
+        <textarea id="rawInputText" class="prompt-textarea" rows="4" placeholder="Enter prompts here, one per line...&#10;Or drop .txt/.csv file anywhere."></textarea>
+        <button id="btnAddToQueue" class="btn btn-outline" style="width: 100%; margin-top: 6px;">Add to Queue</button>
+      </div>
+
+      <!-- Queue Display -->
+      <div class="section-box">
+        <div class="queue-header">
+          <div class="queue-title">Execution Queue (<span id="queueCount">0</span>)</div>
+          <div class="queue-actions">
+            <button id="btnClearDone" class="btn-xs" type="button">Clear Done</button>
+            <button id="btnClearAllQueue" class="btn-xs btn-xs-danger" type="button">Reset All</button>
+          </div>
+        </div>
+        <div id="queueList" class="queue-list">
+          <div class="empty-state">No prompts queued. Add some above.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: SETTINGS -->
+    <section id="tabSettings" class="tab-pane">
+      <div class="section-box">
+        <div class="form-group">
+          <label class="form-label">Generation Mode</label>
+          <div class="radio-pill-group" id="modeGroup">
+            <label class="radio-pill"><input type="radio" name="genMode" value="image" checked><span>Image</span></label>
+            <label class="radio-pill"><input type="radio" name="genMode" value="video"><span>Video</span></label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Model</label>
+          <select id="settingModel" class="form-select">
+            <!-- Populated dynamically based on image/video mode -->
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Aspect Ratio</label>
+          <div class="radio-pill-group" id="ratioGroup">
+            <label class="radio-pill"><input type="radio" name="ratio" value="16:9" checked><span>16:9</span></label>
+            <label class="radio-pill"><input type="radio" name="ratio" value="1:1"><span>1:1</span></label>
+            <label class="radio-pill"><input type="radio" name="ratio" value="9:16"><span>9:16</span></label>
+            <label class="radio-pill"><input type="radio" name="ratio" value="4:3"><span>4:3</span></label>
+            <label class="radio-pill"><input type="radio" name="ratio" value="3:4"><span>3:4</span></label>
+          </div>
+        </div>
+
+        <div class="form-group" id="videoDurationGroup">
+          <label class="form-label">Video Duration</label>
+          <div class="radio-pill-group">
+            <label class="radio-pill"><input type="radio" name="duration" value="4s"><span>4s</span></label>
+            <label class="radio-pill"><input type="radio" name="duration" value="6s"><span>6s</span></label>
+            <label class="radio-pill"><input type="radio" name="duration" value="8s" checked><span>8s</span></label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Batch Multiplier (Variations)</label>
+          <div class="radio-pill-group" id="batchGroup">
+            <label class="radio-pill"><input type="radio" name="batch" value="1" checked><span>x1</span></label>
+            <label class="radio-pill"><input type="radio" name="batch" value="2"><span>x2</span></label>
+            <label class="radio-pill"><input type="radio" name="batch" value="3"><span>x3</span></label>
+            <label class="radio-pill"><input type="radio" name="batch" value="4"><span>x4</span></label>
+          </div>
+        </div>
+
+        <hr class="divider">
+
+        <div class="form-group">
+          <label class="form-checkbox">
+            <input type="checkbox" id="chkAutoDownload" checked>
+            <span>Auto-download generated assets</span>
+          </label>
+        </div>
+
+        <div class="form-group-row">
+          <label class="form-label">Delay before prompt (s)</label>
+          <input type="number" id="settingPromptDelay" class="form-input-number" min="0" max="60" value="5">
+        </div>
+
+        <div class="form-group-row">
+          <label class="form-label">Delay between downloads (s)</label>
+          <input type="number" id="settingDownloadDelay" class="form-input-number" min="0" max="30" value="2">
+        </div>
+
+        <div class="form-group-row">
+          <label class="form-label">Auto-retry on error (rounds)</label>
+          <input type="number" id="settingAutoRetry" class="form-input-number" min="0" max="10" value="2">
+        </div>
+
+        <div class="form-group-row">
+          <label class="form-label">Timeout per prompt (min)</label>
+          <input type="number" id="settingTimeoutMin" class="form-input-number" min="1" max="30" value="8">
+        </div>
+
+        <button id="btnSaveSettings" class="btn btn-outline" style="width: 100%; margin-top: 10px;">Save Settings</button>
+      </div>
+    </section>
+
+    <!-- TAB 3: SELECTORS (DOM CONFIG) -->
+    <section id="tabSelectors" class="tab-pane">
+      <div class="section-box">
+        <p class="section-desc">
+          ZFlow Batcher runs locally. If Google updates the Flow website DOM, you can adjust or add custom CSS selectors below without modifying extension files.
+        </p>
+        <textarea id="selectorsJson" class="code-textarea" rows="12" spellcheck="false"></textarea>
+        <div class="form-group-row" style="margin-top: 8px;">
+          <button id="btnLoadDefaults" class="btn-chip" type="button" style="flex: 1;">Read defaults from Flow tab</button>
+        </div>
+        <div id="defaultKeysInfo" class="section-desc" style="margin-bottom: 8px;"></div>
+        <div style="display: flex; gap: 8px;">
+          <button id="btnSaveSelectors" class="btn btn-primary" style="flex: 1;">Save Overrides</button>
+          <button id="btnResetSelectors" class="btn btn-outline" style="flex: 1;">Reset Defaults</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: LOGS -->
+    <section id="tabLogs" class="tab-pane">
+      <div class="section-box">
+        <div class="logs-header">
+          <span>Activity Log</span>
+          <button id="btnClearLogs" class="btn-xs">Clear</button>
+        </div>
+        <div id="logsContainer" class="logs-container">
+          <div class="log-entry log-dim">[System] ZFlow Batcher initialized. Fully offline mode.</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="panel.js"></script>
+</body>
+</html>
