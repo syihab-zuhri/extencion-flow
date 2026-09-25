@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "ZFlow Batcher",
-  "version": "1.0.0",
-  "description": "Batch prompt automation for Google Flow: queue TXT/CSV prompts, auto-generate, auto-download. Fully local, no accounts, no license checks.",
+  "version": "1.1.0",
+  "description": "Batch prompt automation for Google Flow with optional Flow Studio desktop bridge: queue TXT/CSV prompts, auto-generate, auto-download. Fully local, no accounts, no license checks.",
   "icons": {
     "16": "icons/icon_16.png",
     "48": "icons/icon_48.png",

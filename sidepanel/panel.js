@@ -116,6 +116,8 @@ function toTab(action, payload = {}) {
   if (!state.flowTabId) return Promise.reject(new Error('no flow tab open'));
   return chrome.tabs.sendMessage(state.flowTabId, { action, ...payload });
 }
+window.toTab = toTab;
+window.logLine = logLine;
 
 // ─── Queue parsing (TXT / CSV / textarea) ─────────────────────────────────
 function parseLines(text) {
@@ -462,6 +464,29 @@ function wire() {
     toTab('ABORT_ACTIVE_RUN').catch(() => {});
     logLine('Stop requested.', 'log-error');
   });
+
+  // bridge
+  if (window.ZFB_BRIDGE) {
+    window.ZFB_BRIDGE.loadConfig().then((cfg) => {
+      $('chkBridgeEnable').checked = cfg.enabled;
+      $('bridgePort').value = cfg.port;
+      $('bridgeToken').value = cfg.token;
+      window.ZFB_BRIDGE.updateUi();
+      if (cfg.enabled) window.ZFB_BRIDGE.connect();
+    });
+
+    $('btnSaveBridge').addEventListener('click', async () => {
+      const enabled = $('chkBridgeEnable').checked;
+      const port = Number($('bridgePort').value) || 48210;
+      const token = $('bridgeToken').value.trim();
+      await window.ZFB_BRIDGE.saveConfig({ enabled, port, token });
+      logLine(`Bridge config saved (enabled: ${enabled}, port: ${port})`, 'log-success');
+    });
+
+    $('chkBridgeEnable').addEventListener('change', () => {
+      $('btnSaveBridge').click();
+    });
+  }
 
   // queue input
   $('btnAddToQueue').addEventListener('click', () => {
